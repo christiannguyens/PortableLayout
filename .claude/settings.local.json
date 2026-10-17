@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(swift --version)",
+      "Bash(xcodebuild -version)",
+      "Bash(sw_vers)",
+      "Bash(chmod +x build.sh)",
+      "Bash(./build.sh)",
+      "Bash(open build/PortableDash.app)",
+      "Bash(osascript -e 'tell application \"System Events\" to get {position, size} of window 1 of process \"PortableDash\"')",
+      "Bash(pgrep -lf PortableDash.app; ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i portabledash | tail -3)",
+      "Read(//Users/christiannguyens/Library/Logs/DiagnosticReports/**)",
+      "Bash(pkill -x PortableDash)"
+    ]
+  }
+}
