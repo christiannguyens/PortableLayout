@@ -28,7 +28,9 @@ final class WebSession: NSObject, ObservableObject, WKNavigationDelegate, WKUIDe
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()    // shared, persistent cookies = stay logged in
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
-        config.preferences.isElementFullscreenEnabled = true
+        // Fullscreen fills the panel, never the whole display (see PanelFullscreen.swift).
+        config.preferences.isElementFullscreenEnabled = false
+        config.userContentController.addUserScript(PanelFullscreen.script)
         config.mediaTypesRequiringUserActionForPlayback = []
         webView = WKWebView(frame: .zero, configuration: config)
         super.init()

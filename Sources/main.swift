@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let calendar = CalendarStore()
     let stocks = StockStore()
     private var hotKeyRef: EventHotKeyRef?
+    private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -51,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             MainActor.assumeIsolated { self?.screensChanged() }
         }
         registerHotKey()
+        setUpMenuBarIcon()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -187,6 +189,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.mainMenu = main
     }
 
+    // MARK: Menu bar icon
+
+    private func setUpMenuBarIcon() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.image = Self.menuBarImage()
+        item.button?.toolTip = "PortableDash"
+        let menu = NSMenu()
+        menu.delegate = self
+        item.menu = menu
+        statusItem = item
+    }
+
+    /// A tiny version of the dashboard layout; template images tint themselves for light/dark menu bars.
+    static func menuBarImage() -> NSImage {
+        let img = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            NSColor.black.setFill()
+            let side = NSBezierPath(roundedRect: NSRect(x: 1.5, y: 2.5, width: 5.5, height: 13), xRadius: 1.6, yRadius: 1.6)
+            let top = NSBezierPath(roundedRect: NSRect(x: 8.5, y: 7.5, width: 8, height: 8), xRadius: 1.6, yRadius: 1.6)
+            let bottom = NSBezierPath(roundedRect: NSRect(x: 8.5, y: 2.5, width: 8, height: 3.5), xRadius: 1.2, yRadius: 1.2)
+            side.fill(); top.fill(); bottom.fill()
+            return true
+        }
+        img.isTemplate = true
+        return img
+    }
+
     // MARK: Global hotkey ⌃⌥⌘D
 
     private func registerHotKey() {
@@ -206,3 +234,36 @@ let app = NSApplication.shared
 app.setActivationPolicy(.regular)
 app.delegate = appDelegate
 app.run()
+
+// The menu bar icon's menu is rebuilt each time it opens, so checkmarks are always current.
+extension AppDelegate: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        func add(_ title: String, _ action: Selector, key: String = "", mods: NSEvent.ModifierFlags = [],
+                 on: Bool = false) {
+            let i = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            i.keyEquivalentModifierMask = mods
+            i.target = self
+            i.state = on ? .on : .off
+            menu.addItem(i)
+        }
+        let visible = window.isVisible
+        add(visible ? "Hide Dashboard" : "Show Dashboard", #selector(toggleFromMenuBar),
+            key: "d", mods: [.control, .option, .command])
+        menu.addItem(.separator())
+        add("Privacy Mode", #selector(togglePrivacy), on: settings.s.privacyMode)
+        add("Lock Layout", #selector(toggleLock), on: settings.s.lockLayout)
+        menu.addItem(.separator())
+        add("Fill Display", #selector(fillFromMenuBar))
+        if NSScreen.screens.count > 1 { add("Move to Next Display", #selector(moveFromMenuBar)) }
+        add("Customize…", #selector(customizeFromMenuBar))
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: "Quit PortableDash", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quit)
+    }
+
+    @objc func toggleFromMenuBar() { window.isVisible ? window.orderOut(nil) : showDashboard() }
+    @objc func fillFromMenuBar() { showDashboard(); fillDisplay() }
+    @objc func moveFromMenuBar() { showDashboard(); moveToNextDisplay() }
+    @objc func customizeFromMenuBar() { showDashboard(); settings.showCustomize = true }
+}

@@ -11,6 +11,17 @@ open build/PortableDash.app
 ./build.sh install    # optional: copies it to ~/Applications
 ```
 
+## App icon
+
+```sh
+./make_icon.sh              # the built-in design (Tools/draw_icon.swift)
+./make_icon.sh my-pic.png   # or any square image of your own
+./build.sh
+```
+
+The menu bar icon (top right) has Show/Hide, Privacy Mode, Lock Layout, Fill/Move Display,
+Customize and Quit.
+
 ## One-time permissions
 
 | Panel    | What macOS asks for | Why |
@@ -28,6 +39,11 @@ If Messages asks again, remove PortableDash from the Full Disk Access list and r
 
 - **+** in the header adds a panel: quick picks (YouTube, Canvas, Calendar, Notion, Discord…),
   any URL, or a hidden panel. Each panel's ⋯ menu has Edit / Hide / Remove.
+- **Photo gallery** (also under **+**): a slideshow of a folder or of photos you pick. Folders are
+  rescanned every few minutes, so new photos join the rotation. For Google Drive, install
+  [Google Drive for desktop](https://www.google.com/drive/download/) and pick a folder from it.
+  ⋯ → Edit sets the interval (3 sec – 1 hour), transition (fade / slide / zoom / Ken Burns),
+  fill vs. whole photo, and shuffle. Hover the photo for previous / pause / next.
 - Drag the gaps between panels to resize; double-click a gap to reset it.
 - ⚙︎ (top-right) or ⌘, opens Customize: layouts, panel order, themes, accent color,
   wallpaper, ambient effects (orbs / stars / aurora), glass/frosted/solid panels, stickers.
@@ -41,4 +57,4 @@ If Messages asks again, remove PortableDash from the Full Disk Access list and r
 
 `Sources/` — `main.swift` (window, menus, hotkey), `Dashboard.swift` (header, panels, decor),
 `Layout.swift` (split layout + dividers), `Customize.swift`, `AddPanel.swift` (+ button),
-`Messages.swift`, `Spotify.swift`, `Web.swift` (Claude and every web panel). `PortableLayout.swift` is the old window-snapping script, left untouched.
+`Messages.swift`, `Spotify.swift`, `Web.swift` (Claude and every web panel), `Photos.swift` (photo galleries). `PortableLayout.swift` is the old window-snapping script, left untouched.

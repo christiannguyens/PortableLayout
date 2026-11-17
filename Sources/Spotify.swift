@@ -183,66 +183,18 @@ final class SpotifyController: ObservableObject {
 struct SpotifyPanel: View {
     @EnvironmentObject var sp: SpotifyController
     @EnvironmentObject var settings: SettingsStore
-    @EnvironmentObject var web: WebSessions
     @State private var scrub: Double?
     @State private var liveVolume: Double?
 
     var body: some View {
-        if settings.s.spotifyBrowse {
-            browseView
-        } else {
-            playerView
-        }
-    }
-
-    /// Spotify's web player for searching and picking songs, with a mini player underneath.
-    /// Songs picked here play on whichever device Spotify Connect has selected (normally the Mac app).
-    private var browseView: some View {
-        VStack(spacing: 0) {
-            WebViewHost(webView: web.spotifyBrowser.webView,
-                        cornerRadius: max(CGFloat(settings.s.cornerRadius) - 6, 4)) { _ in }
-                .padding(.horizontal, 6)
-                .padding(.top, settings.s.showPanelTitles ? 0 : 6)
-            miniBar
-        }
-    }
-
-    private var miniBar: some View {
-        HStack(spacing: 10) {
-            if let t = sp.track, sp.running {
-                Group {
-                    if let art = sp.artwork { Image(nsImage: art).resizable().scaledToFill() }
-                    else { settings.accent.opacity(0.25) }
+        playerView
+            .overlay(alignment: .topTrailing) {
+                // With panel title bars hidden, keep a way to open the browser.
+                if !settings.s.showPanelTitles {
+                    TitleButton("magnifyingglass", help: "Search & pick songs") { settings.openSpotifyBrowser(sp) }
+                        .padding(8)
                 }
-                .frame(width: 34, height: 34)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(t.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                    Text(t.artist).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-                }
-                Spacer(minLength: 6)
-                iconButton("backward.fill", size: 13) { sp.previous() }
-                Button(action: sp.playPause) {
-                    Image(systemName: sp.playing ? "pause.fill" : "play.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(settings.onAccent)
-                        .frame(width: 30, height: 30)
-                        .background(Circle().fill(settings.accent))
-                }
-                .buttonStyle(.plain)
-                iconButton("forward.fill", size: 13) { sp.next() }
-            } else if !sp.running {
-                Text("Open the Spotify app so songs you pick play through it")
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                Spacer()
-                Button("Open Spotify") { sp.launch() }.controlSize(.small)
-            } else {
-                Text("Pick something to play").font(.caption).foregroundStyle(.secondary)
-                Spacer()
             }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
     }
 
     private var playerView: some View {
@@ -297,7 +249,9 @@ struct SpotifyPanel: View {
                 .frame(maxHeight: .infinity)
             }
         } else {
-            placeholder(icon: "play.circle", title: "Nothing playing", button: "Play") { sp.playPause() }
+            placeholder(icon: "play.circle", title: "Nothing playing", button: "Pick something") {
+                settings.openSpotifyBrowser(sp)
+            }
         }
     }
 
@@ -407,4 +361,59 @@ struct SpotifyPanel: View {
         let s = max(Int(s), 0)
         return String(format: "%d:%02d", s / 60, s % 60)
     }
+}
+
+// MARK: - Browser overlay
+
+/// open.spotify.com in a big card floating over the dashboard, for searching and picking songs
+/// without resizing the layout. Picks play through the Spotify Mac app (via Spotify Connect).
+struct SpotifyBrowserOverlay: View {
+    @EnvironmentObject var settings: SettingsStore
+    @EnvironmentObject var web: WebSessions
+    @EnvironmentObject var sp: SpotifyController
+
+    var body: some View {
+        GeometryReader { geo in
+            let shape = RoundedRectangle(cornerRadius: CGFloat(settings.s.cornerRadius), style: .continuous)
+            ZStack {
+                Color.black.opacity(0.4)
+                    .contentShape(Rectangle())
+                    .onTapGesture { close() }
+
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "music.note").font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(settings.accent)
+                        Text("Spotify").font(.system(size: 12, weight: .semibold, design: .rounded))
+                        Text(sp.running ? "Plays through your Spotify app" : "Starting the Spotify app…")
+                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Spacer()
+                        WebTitleButtons(session: web.spotifyBrowser)
+                        Button(action: close) {
+                            Image(systemName: "xmark").font(.system(size: 11, weight: .bold))
+                                .frame(width: 24, height: 24)
+                                .background(Circle().fill(Color.primary.opacity(0.12)))
+                        }
+                        .buttonStyle(.plain)
+                        .keyboardShortcut(.cancelAction)
+                        .help("Close (Esc)")
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 38)
+
+                    WebViewHost(webView: web.spotifyBrowser.webView,
+                                cornerRadius: max(CGFloat(settings.s.cornerRadius) - 6, 4)) { _ in }
+                        .padding([.horizontal, .bottom], 6)
+                }
+                .frame(width: max(min(geo.size.width - 40, 1100), 300),
+                       height: max(min(geo.size.height - 40, 860), 300))
+                .background(.regularMaterial, in: shape)
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(settings.accent.opacity(0.45), lineWidth: 1))
+                .shadow(color: .black.opacity(0.45), radius: 30, y: 10)
+            }
+        }
+    }
+
+    private func close() { settings.showSpotifyBrowser = false }
 }

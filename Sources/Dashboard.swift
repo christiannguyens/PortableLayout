@@ -24,6 +24,11 @@ struct DashboardView: View {
             .padding(.bottom, CGFloat(s.gap))
             .padding(.top, s.showHeader ? 6 : 6)
 
+            if settings.showSpotifyBrowser {
+                SpotifyBrowserOverlay()
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
+
             if settings.showCustomize {
                 CustomizeSidebar()
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -32,6 +37,7 @@ struct DashboardView: View {
         .ignoresSafeArea()
         .environment(\.colorScheme, settings.theme.isLight ? .light : .dark)
         .animation(.spring(duration: 0.35), value: settings.showCustomize)
+        .animation(.easeOut(duration: 0.2), value: settings.showSpotifyBrowser)
         .animation(.spring(duration: 0.35), value: settings.activePreset)
         .animation(.spring(duration: 0.35), value: s.order)
         .animation(.spring(duration: 0.35), value: s.hidden)
@@ -86,6 +92,12 @@ struct PanelCard: View {
                     editing = false
                 } onCancel: { editing = false }
                 .environmentObject(settings)
+            } else if let panel = settings.photoPanel(id) {
+                PhotoPanelForm(initial: panel) { updated in
+                    settings.updatePhotoPanel(updated)
+                    editing = false
+                } onCancel: { editing = false }
+                .environmentObject(settings)
             }
         }
     }
@@ -97,7 +109,9 @@ struct PanelCard: View {
         case .spotify:
             SpotifyPanel()
         case .claude, nil:
-            if let session = web.session(for: id, settings: settings) {
+            if let photos = settings.photoPanel(id) {
+                PhotoPanelView(panel: photos)
+            } else if let session = web.session(for: id, settings: settings) {
                 WebPanelView(session: session, cardHovering: hovering)
             }
         }
@@ -127,7 +141,7 @@ struct PanelCard: View {
                 if kind == nil {
                     Button("Remove \(title)", systemImage: "trash", role: .destructive) {
                         web.remove(id)
-                        settings.removeWebPanel(id)
+                        settings.removePanel(id)
                     }
                 }
             } label: {
@@ -154,13 +168,7 @@ struct PanelCard: View {
             TitleButton("arrow.clockwise", help: "Refresh") { messages.refresh(force: true) }
             TitleButton("arrow.up.forward.app", help: "Open Messages") { MessagesStore.openMessagesApp() }
         case .spotify:
-            if settings.s.spotifyBrowse {
-                WebTitleButtons(session: web.spotifyBrowser)
-            }
-            TitleButton(settings.s.spotifyBrowse ? "play.square.fill" : "magnifyingglass",
-                        help: settings.s.spotifyBrowse ? "Back to player" : "Browse & pick songs") {
-                settings.s.spotifyBrowse.toggle()
-            }
+            TitleButton("magnifyingglass", help: "Search & pick songs") { settings.openSpotifyBrowser(spotify) }
             TitleButton("arrow.up.forward.app", help: "Open Spotify") {
                 spotify.running ? spotify.bringToFront() : spotify.launch()
             }

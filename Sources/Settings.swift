@@ -171,6 +171,7 @@ struct DashSettings: Codable, Equatable {
     var order: [PanelID] = PanelKind.allCases.map(\.rawValue)
     var hidden: [PanelID] = []
     var webPanels: [WebPanel] = []
+    var photoPanels: [PhotoPanel] = []
     var splits: [String: Double] = [:]
     var lockLayout = false
 
@@ -178,7 +179,6 @@ struct DashSettings: Codable, Equatable {
     var privacyMode = false
     var autoMoveToExternal = true
     var claudeHome = "https://claude.ai/new"
-    var spotifyBrowse = false        // Spotify panel shows the web player for picking songs
 
     private static let key = "dashSettings.v1"
 
@@ -204,7 +204,7 @@ struct DashSettings: Codable, Equatable {
 
     /// Make sure every panel that exists appears exactly once in `order`.
     mutating func normalize() {
-        let all = PanelKind.allCases.map(\.rawValue) + webPanels.map(\.id)
+        let all = PanelKind.allCases.map(\.rawValue) + webPanels.map(\.id) + photoPanels.map(\.id)
         var seen = Set<PanelID>()
         order = order.filter { all.contains($0) && seen.insert($0).inserted }
         order += all.filter { !seen.contains($0) }
@@ -224,6 +224,14 @@ final class SettingsStore: ObservableObject {
         }
     }
     @Published var showCustomize = false
+    @Published var showSpotifyBrowser = false
+
+    /// Opens the Spotify browser overlay, starting the Spotify app in the background if needed
+    /// so the songs you pick have somewhere to play.
+    func openSpotifyBrowser(_ sp: SpotifyController) {
+        if !sp.running { sp.launch() }
+        showSpotifyBrowser = true
+    }
     /// Divider positions while being dragged (committed to `s.splits` on release).
     @Published var liveSplits: [String: Double] = [:]
     @Published private(set) var wallpaper: NSImage?
@@ -267,9 +275,15 @@ final class SettingsStore: ObservableObject {
 
     func webPanel(_ id: PanelID) -> WebPanel? { s.webPanels.first { $0.id == id } }
 
-    func title(_ id: PanelID) -> String { PanelKind(rawValue: id)?.title ?? webPanel(id)?.title ?? "Panel" }
+    func photoPanel(_ id: PanelID) -> PhotoPanel? { s.photoPanels.first { $0.id == id } }
 
-    func symbol(_ id: PanelID) -> String { PanelKind(rawValue: id)?.symbol ?? webPanel(id)?.symbol ?? "globe" }
+    func title(_ id: PanelID) -> String {
+        PanelKind(rawValue: id)?.title ?? webPanel(id)?.title ?? photoPanel(id)?.title ?? "Panel"
+    }
+
+    func symbol(_ id: PanelID) -> String {
+        PanelKind(rawValue: id)?.symbol ?? webPanel(id)?.symbol ?? (photoPanel(id) != nil ? PhotoPanel.symbol : "globe")
+    }
 
     func addWebPanel(_ p: WebPanel) {
         var p = p
@@ -286,8 +300,26 @@ final class SettingsStore: ObservableObject {
         s.webPanels[i] = p
     }
 
-    func removeWebPanel(_ id: PanelID) {
+    func addPhotoPanel(_ p: PhotoPanel, importing photos: [URL] = []) {
+        var p = p
+        PhotoPanel.importPhotos(photos, into: p.id)
+        if !photos.isEmpty { p.photosVersion += 1 }
+        s.photoPanels.append(p)
+        s.order.append(p.id)
+    }
+
+    func updatePhotoPanel(_ p: PhotoPanel) {
+        guard let i = s.photoPanels.firstIndex(where: { $0.id == p.id }) else { return }
+        s.photoPanels[i] = p
+    }
+
+    /// Removes a user-added panel (web or photo gallery). Built-ins can only be hidden.
+    func removePanel(_ id: PanelID) {
         s.webPanels.removeAll { $0.id == id }
+        if s.photoPanels.contains(where: { $0.id == id }) {
+            s.photoPanels.removeAll { $0.id == id }
+            PhotoPanel.deleteStorage(for: id)
+        }
         s.normalize()
     }
 

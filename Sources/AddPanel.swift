@@ -67,6 +67,27 @@ private struct AddPanelPopover: View {
             }
 
             Divider()
+            label("Photo gallery")
+            HStack(spacing: 6) {
+                photoButton("Folder…", symbol: "folder") {
+                    PhotoPicker.chooseFolder().map { (PhotoPanel(title: $0.lastPathComponent, folderPath: $0.path), []) }
+                }
+                photoButton("Photos…", symbol: "photo.stack") {
+                    let urls = PhotoPicker.choosePhotos()
+                    return urls.isEmpty ? nil : (PhotoPanel(), urls)
+                }
+                if let drive = PhotoPicker.googleDriveRoot {
+                    photoButton("Google Drive…", symbol: "externaldrive.connected.to.line.below") {
+                        PhotoPicker.chooseFolder(startingAt: drive).map { (PhotoPanel(title: $0.lastPathComponent, folderPath: $0.path), []) }
+                    }
+                }
+            }
+            if PhotoPicker.googleDriveRoot == nil {
+                Link("For Google Drive photos, install Google Drive for desktop", destination: PhotoPicker.googleDriveDownload)
+                    .font(.caption)
+            }
+
+            Divider()
             label("Any website")
             WebPanelForm(initial: WebPanel(title: "", url: ""), isNew: true) { p in
                 settings.addWebPanel(p)
@@ -79,6 +100,23 @@ private struct AddPanelPopover: View {
 
     private func label(_ s: String) -> some View {
         Text(s.uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+    }
+
+    /// Closes the popover first, then shows the file picker and adds the gallery if something was chosen.
+    private func photoButton(_ title: String, symbol: String,
+                             pick: @escaping () -> (PhotoPanel, [URL])?) -> some View {
+        Button {
+            close()
+            DispatchQueue.main.async {
+                if let (panel, photos) = pick() { settings.addPhotoPanel(panel, importing: photos) }
+            }
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(.caption)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Capsule().fill(settings.accent.opacity(0.15)))
+        }
+        .buttonStyle(.plain)
     }
 }
 

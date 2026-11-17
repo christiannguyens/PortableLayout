@@ -83,7 +83,7 @@ struct CustomizeSidebar: View {
                         if PanelKind(rawValue: id) == nil {
                             smallButton("trash") {
                                 web.remove(id)
-                                settings.removeWebPanel(id)
+                                settings.removePanel(id)
                             }
                         }
                     }
